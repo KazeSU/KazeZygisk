@@ -19,12 +19,23 @@
 
 #include "android_util.hpp"
 #include "daemon.hpp"
+#include "elf_util.h"
 #include "logging.hpp"
 #include "module.hpp"
 #include "tracer_pid.hpp"
 #include "zygisk.hpp"
 
 using namespace std;
+
+static std::vector<lsplt::MapInfo> safe_scan_map_infos() {
+    auto entries = znn::parseMaps("self");
+    std::vector<lsplt::MapInfo> result;
+    result.reserve(entries.size());
+    for (auto &e : entries) {
+        result.push_back(lsplt::MapInfo{e.start, e.end, e.perms, e.is_private, e.offset, e.dev, e.inode, std::move(e.path)});
+    }
+    return result;
+}
 
 // *********************
 // Zygisk Bootstrapping
@@ -108,7 +119,7 @@ DCL_HOOK_FUNC(static char *, strdup, const char *str) {
             bool expected = false;
             if (zygote_hooked.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
                 g_hook->hook_zygote_jni();
-                g_hook->cached_map_infos = lsplt::MapInfo::Scan();
+                g_hook->cached_map_infos = safe_scan_map_infos();
             }
         }
     }
@@ -356,7 +367,7 @@ void HookContext::hook_plt() {
     ino_t android_runtime_inode = 0;
     dev_t android_runtime_dev = 0;
 
-    cached_map_infos = lsplt::MapInfo::Scan();
+    cached_map_infos = safe_scan_map_infos();
     for (auto &map : cached_map_infos) {
         if (map.path.ends_with("/libandroid_runtime.so")) {
             android_runtime_inode = map.inode;
@@ -407,7 +418,7 @@ void HookContext::hook_unloader() {
     ino_t art_inode = 0;
     dev_t art_dev = 0;
 
-    cached_map_infos = lsplt::MapInfo::Scan();
+    cached_map_infos = safe_scan_map_infos();
     for (auto &map : cached_map_infos) {
         if (map.path.ends_with("/libart.so")) {
             art_inode = map.inode;
