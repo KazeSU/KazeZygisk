@@ -97,17 +97,17 @@ listOf("Debug", "Release").forEach { variantCap ->
 
             // Strip each binary, keeping a detached debug-symbol file linked back via gnu-debuglink.
             abiToTriple.forEach { (abi, triple) ->
-                val built = File(targetDir, "$triple/$profileName/zygiskd")
-                if (!built.exists()) error("zygiskd binary not found for $abi at $built")
+                val built = File(targetDir, "$triple/$profileName/kazezygiskd")
+                if (!built.exists()) error("kazezygiskd binary not found for $abi at $built")
 
                 val abiDir = File(outJniDir, abi).apply { mkdirs() }
-                built.copyTo(File(abiDir, "zygiskd"), overwrite = true)
+                built.copyTo(File(abiDir, "kazezygiskd"), overwrite = true)
 
-                val symbolPath = File(symbolDir, "$abi/zygiskd.debug")
+                val symbolPath = File(symbolDir, "$abi/kazezygiskd.debug")
                 symbolPath.parentFile.mkdirs()
-                providers.exec { workingDir = abiDir; commandLine(objcopy.absolutePath, "--only-keep-debug", "zygiskd", symbolPath.absolutePath) }.result.get().assertNormalExitValue()
-                providers.exec { workingDir = abiDir; commandLine(strip.absolutePath, "--strip-all", "zygiskd") }.result.get().assertNormalExitValue()
-                providers.exec { workingDir = abiDir; commandLine(objcopy.absolutePath, "--add-gnu-debuglink", symbolPath.absolutePath, "zygiskd") }.result.get().assertNormalExitValue()
+                providers.exec { workingDir = abiDir; commandLine(objcopy.absolutePath, "--only-keep-debug", "kazezygiskd", symbolPath.absolutePath) }.result.get().assertNormalExitValue()
+                providers.exec { workingDir = abiDir; commandLine(strip.absolutePath, "--strip-all", "kazezygiskd") }.result.get().assertNormalExitValue()
+                providers.exec { workingDir = abiDir; commandLine(objcopy.absolutePath, "--add-gnu-debuglink", symbolPath.absolutePath, "kazezygiskd") }.result.get().assertNormalExitValue()
             }
         }
     }

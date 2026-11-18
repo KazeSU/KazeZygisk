@@ -14,12 +14,12 @@ if [ "$ZYGISK_ENABLED" ]; then
   exit 0
 fi
 
-if [ -f "$MODDIR/bin/zygisk-ptrace64" ]; then
-  TRACER="$MODDIR/bin/zygisk-ptrace64"
-elif [ -f "$MODDIR/bin/zygisk-ptrace32" ]; then
-  TRACER="$MODDIR/bin/zygisk-ptrace32"
+if [ -f "$MODDIR/bin/kazezygisk-ptrace64" ]; then
+  TRACER="$MODDIR/bin/kazezygisk-ptrace64"
+elif [ -f "$MODDIR/bin/kazezygisk-ptrace32" ]; then
+  TRACER="$MODDIR/bin/kazezygisk-ptrace32"
 else
-  log -p e -t "zygisk-sh" "No tracer binary found in $MODDIR/bin"
+  log -p e -t "kazezygisk-sh" "No tracer binary found in $MODDIR/bin"
   exit 1
 fi
 
@@ -30,11 +30,11 @@ if [ -z "$(pidof zygote64)$(pidof zygote)" ]; then
   exit 0
 fi
 
-log -p i -t "zygisk-sh" "post-mount: system already running, arming NyaZygisk"
+log -p i -t "kazezygisk-sh" "post-mount: system already running, arming KazeZygisk"
 
 # The monitor refreshes the daemon's module snapshot and attaches whatever is up and not
 # yet injected. It is idempotent, so running it on every boot costs nothing.
 if ! "$TRACER" ctl rearm; then
-  log -p e -t "zygisk-sh" "post-mount: no monitor answered, injection not armed"
+  log -p e -t "kazezygisk-sh" "post-mount: no monitor answered, injection not armed"
   exit 1
 fi

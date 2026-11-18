@@ -42,26 +42,26 @@ std::string getProcessName() {
 
 constexpr char kZnMemfdName[] = "zn-module";
 
-bool loadEntry(const zygiskd::ZnPlanEntry& entry, bool* via_system) {
+bool loadEntry(const kazezygiskd::ZnPlanEntry& entry, bool* via_system) {
     *via_system = false;
     void* lib = modloader::Dlopen(entry.lib_fd.get(), kZnMemfdName, via_system);
     if (!lib) {
         LOGE("ZN: load %s (fd %d) failed", entry.lib_path.c_str(), entry.lib_fd.get());
-        zygiskd::ReportZnModule(entry.lib_path, false);
+        kazezygiskd::ReportZnModule(entry.lib_path, false);
         return false;
     }
 
     auto* m = reinterpret_cast<ZygiskNextModule*>(modloader::Dlsym(lib, "zn_module"));
     if (!m || !m->onModuleLoaded) {
         LOGE("ZN: %s does not export zn_module", entry.lib_path.c_str());
-        zygiskd::ReportZnModule(entry.lib_path, false);
+        kazezygiskd::ReportZnModule(entry.lib_path, false);
         return false;
     }
 
     if (m->target_api_version > ZYGISK_NEXT_API_VERSION) {
         LOGW("ZN: %s requires API version %d, only up to %d supported", entry.lib_path.c_str(),
              m->target_api_version, ZYGISK_NEXT_API_VERSION);
-        zygiskd::ReportZnModule(entry.lib_path, false);
+        kazezygiskd::ReportZnModule(entry.lib_path, false);
         return false;
     }
 
@@ -80,7 +80,7 @@ bool loadEntry(const zygiskd::ZnPlanEntry& entry, bool* via_system) {
     LOGI("ZN: loading module %s (companion=%s, api=%d)", entry.lib_path.c_str(),
          entry.companion ? "yes" : "no", m->target_api_version);
     m->onModuleLoaded(handle, api);
-    zygiskd::ReportZnModule(entry.lib_path, true);
+    kazezygiskd::ReportZnModule(entry.lib_path, true);
     return true;
 }
 
@@ -92,7 +92,7 @@ void loadAllModules(unsigned char connect_retry) {
     LOGI("ZN: requesting boot plan for pid %d (name=%s, path=%s)", getpid(),
          proc_name.c_str(), proc_path.c_str());
 
-    auto plan = zygiskd::GetZnPlan(proc_name, proc_path, connect_retry);
+    auto plan = kazezygiskd::GetZnPlan(proc_name, proc_path, connect_retry);
     LOGI("ZN: received %zu module(s) from daemon", plan.size());
 
     size_t loaded_count = 0;

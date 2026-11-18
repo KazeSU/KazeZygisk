@@ -124,6 +124,10 @@ public:
     ZygoteAbiManager &get_abi_manager();
     TracingState get_tracing_state() const;
 
+    /// Append one line to the runtime evidence log. Best effort: evidence collection
+    /// must never take the monitor down with it.
+    void record_evidence(const std::string &kind, const std::string &message);
+
 private:
     class SocketHandler : public EventHandler {
     public:

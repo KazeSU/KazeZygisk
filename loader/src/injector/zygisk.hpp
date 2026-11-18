@@ -33,6 +33,7 @@ void clean_linker_trace(const char *path, size_t loaded_modules, size_t unloaded
 bool is_anonymous_memory_enabled();
 bool is_custom_linker_enabled();
 bool is_lsplt_engine_configured();
+int denylist_mode();
 
 struct SavedCfiShadow {
     uintptr_t dst_addr = 0;

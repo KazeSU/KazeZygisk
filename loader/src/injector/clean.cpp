@@ -30,7 +30,7 @@
 #include "solist.hpp"
 #include "zygisk.hpp"
 
-constexpr const char *kConfigPath = "/data/system/nyazygisk/config.prop";
+constexpr const char *kConfigPath = "/data/system/kazezygisk/config.prop";
 
 void clean_libc_trace() {
     const auto status = Atexit::scrubFingerprint();
@@ -85,6 +85,29 @@ bool is_custom_linker_enabled() { return config_line_present("custom_linker", "1
 
 // PLT hook engine for ZN modules: bytehook (default) or lsplt.
 bool is_lsplt_engine_configured() { return config_line_present("plt_engine", "lsplt"); }
+
+// Denylist handling for app processes:
+//   0 = revert module mounts for denylisted apps (default)
+//   1 = revert mounts and do not load modules into them
+//   2 = ignore the denylist entirely
+int denylist_mode() {
+    FILE *fp = fopen(kConfigPath, "re");
+    if (fp == nullptr) return 0;
+
+    int mode = 0;
+    char line[128];
+    while (fgets(line, sizeof(line), fp) != nullptr) {
+        if (strncmp(line, "denylist_mode=", 14) != 0) continue;
+        char *value = line + 14;
+        while (*value == ' ' || *value == '\t') ++value;
+        if (*value >= '0' && *value <= '2') {
+            mode = *value - '0';
+        }
+        break;
+    }
+    fclose(fp);
+    return mode;
+}
 
 static size_t page_size() {
     long sz = sysconf(_SC_PAGESIZE);

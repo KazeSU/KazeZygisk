@@ -19,7 +19,7 @@ if [ -z "$KSU$APATCH" ]; then
     if [ -d "$file" ] && [ -d "$file/zygisk" ] && ! [ -f "$file/disable" ]; then
       if [ -f "$file/service.sh" ]; then
         cd "$file"
-        log -p i -t "zygisk-sh" "Manually trigger service.sh for $file"
+        log -p i -t "kazezygisk-sh" "Manually trigger service.sh for $file"
         # INFO: Don't propagate errexit
         set +e
 

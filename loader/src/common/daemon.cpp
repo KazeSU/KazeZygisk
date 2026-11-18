@@ -33,7 +33,7 @@ static_assert(sizeof(ShmEntry) == sizeof(uint32_t) * 2);
 static_assert(sizeof(ShmLayout) == sizeof(uint32_t) * (1 + SHM_HASH_MAP_SIZE * 2));
 }  // namespace constants
 
-namespace zygiskd {
+namespace kazezygiskd {
 static std::string TMP_PATH;
 static constants::ShmLayout *g_shm_base = nullptr;
 static bool g_shm_init_attempted = false;
@@ -81,7 +81,7 @@ int Connect(uint8_t retry) {
             return fd;
         }
         if (retry) {
-            LOGW("retrying to connect to zygiskd, sleep 1s");
+            LOGW("retrying to connect to kazezygiskd, sleep 1s");
             sleep(1);
         }
     }
@@ -93,7 +93,7 @@ int Connect(uint8_t retry) {
 bool PingHeartbeat() {
     UniqueFd fd = Connect(5);
     if (fd == -1) {
-        PLOGE("connecting to zygiskd");
+        PLOGE("connecting to kazezygiskd");
         return false;
     }
     socket_utils::write_u8(fd, (uint8_t) SocketAction::PingHeartbeat);
@@ -109,7 +109,7 @@ uint32_t GetProcessFlags(uid_t uid) {
                                 shm_fd, 0);
             if (mapped != MAP_FAILED) {
                 g_shm_base = static_cast<constants::ShmLayout *>(mapped);
-                LOGV("zygiskd: mapped shared memory cache for ProcessFlags");
+                LOGV("kazezygiskd: mapped shared memory cache for ProcessFlags");
             } else {
                 PLOGE("mmap shared memory cache");
             }
@@ -371,4 +371,4 @@ bool RefreshModules() {
     }
     return socket_utils::read_u8(fd) == 1;
 }
-}  // namespace zygiskd
+}  // namespace kazezygiskd

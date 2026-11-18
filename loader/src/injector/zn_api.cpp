@@ -112,7 +112,7 @@ int api_connectCompanion(void* handle) {
     if (!h || !h->companion || h->target_api_version < 3 || h->lib_path.empty()) {
         return -1;
     }
-    return zygiskd::ConnectZnCompanion(h->lib_path);
+    return kazezygiskd::ConnectZnCompanion(h->lib_path);
 }
 
 // Helper: Raw inline hook via Dobby

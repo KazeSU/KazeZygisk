@@ -1,0 +1,28 @@
+KazeZygisk
+==========
+
+KazeZygisk is part of KazeSU (https://github.com/KazeSU/KazeSU).
+
+It is a fork of BuiltZygisk / NyaZygisk
+(https://github.com/SukiSU-Nova/BuiltZygisk), which is a fork of
+NeoZygisk by JingMatrix (https://github.com/JingMatrix/NeoZygisk).
+
+Upstream authors and copyright holders include:
+
+  JingMatrix        NeoZygisk
+  NkBe              NyaZygisk / BuiltZygisk
+  Dr-TSNG           Zygisk Next API definitions
+  LSPosed           Dobby, LSPlt
+  eirv              riscv64-inline-hook
+
+The Zygisk Next API header (loader/src/include/zygisk_next_api.h) and the
+public Zygisk API header (loader/src/include/api.hpp,
+loader/src/include/zygisk.hpp) retain their upstream notices and must not be
+rebranded.
+
+KazeZygisk is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License, version 3, as published by the
+Free Software Foundation. See LICENSE.
+
+Source code for every binary distributed with KazeSU is available at
+https://github.com/KazeSU/KazeSU and https://github.com/KazeSU/KazeZygisk.

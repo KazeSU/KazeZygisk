@@ -14,7 +14,7 @@ extern "C" [[gnu::visibility("default")]]
 void entry(void* addr, size_t size, const char* path, TraceMode mode) {
     LOGI("zygisk library injected, version %s [mode: %d]", ZKSU_VERSION, mode);
 
-    zygiskd::Init(path);
+    kazezygiskd::Init(path);
     zn::initHookEngine();
 
     if (zn::isHyosSpawner()) {
@@ -25,7 +25,7 @@ void entry(void* addr, size_t size, const char* path, TraceMode mode) {
         return;
     }
 
-    if (!zygiskd::PingHeartbeat()) {
+    if (!kazezygiskd::PingHeartbeat()) {
         LOGE("zygisk daemon is not running");
         return;
     }

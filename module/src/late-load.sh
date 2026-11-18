@@ -3,11 +3,11 @@
 # KernelSU runs this instead of post-fs-data.sh when the kernel module was loaded into an
 # already-running system (`ksud late-load`, the temp root that a full reboot discards).
 #
-# Late load covers every case where NyaZygisk is asked to arm itself after the window it
+# Late load covers every case where KazeZygisk is asked to arm itself after the window it
 # normally relies on has passed: a temp root, and a build with no root solution at all,
 # such as AOSP userdebug, where nothing runs at boot and the trigger is a root shell.
 # Both arrive at the same state, zygote and system_server already running and specialized,
-# so both go through one entry point, `zygisk-ptrace64 ctl rearm`. That asks the running
+# so both go through one entry point, `kazezygisk-ptrace64 ctl rearm`. That asks the running
 # monitor to start the daemon if it is gone, have it rebuild its module snapshot, then
 # live-attach whichever of zygote and system_server are up without our hooks. It is
 # idempotent and a no-op when nothing is running, so the same call serves a normal boot, a
@@ -31,14 +31,14 @@
 
 MODDIR=${0%/*}
 
-log -p i -t "zygisk-sh" "late-load: bootstrapping NyaZygisk on a running system"
+log -p i -t "kazezygisk-sh" "late-load: bootstrapping KazeZygisk on a running system"
 
-# Shares the bootstrap with the normal path. zygisk-init.sh never recreates the work
+# Shares the bootstrap with the normal path. kazezygisk-init.sh never recreates the work
 # directory, so a monitor left over from a previous root session keeps its control socket
 # and injected processes keep the library they already mapped. Nothing is left holding this
 # script's stdout: the monitor it backgrounds would otherwise keep a calling shell waiting
 # on it for the rest of the session.
-. "$MODDIR/zygisk-init.sh" </dev/null >/dev/null 2>&1
+. "$MODDIR/kazezygisk-init.sh" </dev/null >/dev/null 2>&1
 
 # In late-load, neither ksud nor apd triggers post-mount.sh because the system is already booted.
 # We must always run post-mount.sh to send `ctl rearm` and attach running zygote & system_server.
@@ -50,5 +50,5 @@ if [ "$KSU" ] || [ "$APATCH" ]; then
   exit 0
 fi
 
-log -p i -t "zygisk-sh" "late-load: no root framework, running the service stage"
+log -p i -t "kazezygisk-sh" "late-load: no root framework, running the service stage"
 sh "$MODDIR/service.sh"

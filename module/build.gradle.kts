@@ -52,12 +52,12 @@ androidComponents.onVariants { variant ->
         group = "module"
         dependsOn(
             ":loader:assemble$variantCapped",
-            ":zygiskd:buildAndStrip$variantCapped",
+            ":kazezygiskd:buildAndStrip$variantCapped",
         )
         into(moduleDir)
         from("${rootProject.projectDir}/README.md")
         from("$projectDir/src") {
-            exclude("module.prop", "customize.sh", "post-fs-data.sh", "late-load.sh", "post-mount.sh", "hotinstall.sh", "zygisk-init.sh", "service.sh", "uninstall.sh", "zygisk-ctl.sh")
+            exclude("module.prop", "customize.sh", "post-fs-data.sh", "late-load.sh", "post-mount.sh", "hotinstall.sh", "kazezygisk-init.sh", "service.sh", "uninstall.sh", "zygisk-ctl.sh")
             filter<FixCrLfFilter>("eol" to FixCrLfFilter.CrLf.newInstance("lf"))
         }
         from("$projectDir/src") {
@@ -71,7 +71,7 @@ androidComponents.onVariants { variant ->
             )
         }
         from("$projectDir/src") {
-            include("customize.sh", "post-fs-data.sh", "late-load.sh", "post-mount.sh", "hotinstall.sh", "zygisk-init.sh", "service.sh", "uninstall.sh", "zygisk-ctl.sh")
+            include("customize.sh", "post-fs-data.sh", "late-load.sh", "post-mount.sh", "hotinstall.sh", "kazezygisk-init.sh", "service.sh", "uninstall.sh", "zygisk-ctl.sh")
             val tokens = mapOf(
                 "DEBUG" to if (buildTypeLowered == "debug") "true" else "false",
                 "MIN_APATCH_VERSION" to "$minAPatchVersion",
@@ -85,8 +85,8 @@ androidComponents.onVariants { variant ->
             filter<FixCrLfFilter>("eol" to FixCrLfFilter.CrLf.newInstance("lf"))
         }
         into("bin") {
-            from(project(":zygiskd").layout.buildDirectory.dir("intermediates/rust/$buildTypeLowered/jniLibs"))
-            include("**/zygiskd")
+            from(project(":kazezygiskd").layout.buildDirectory.dir("intermediates/rust/$buildTypeLowered/jniLibs"))
+            include("**/kazezygiskd")
         }
         into("lib") {
             from(project(":loader").layout.buildDirectory.dir("intermediates/stripped_native_libs/$variantLowered/strip${variantCapped}DebugSymbols/out/lib"))

@@ -60,8 +60,8 @@ ZygoteAbiManager::ZygoteAbiManager(AppMonitor& monitor, bool is_64bit)
       program_path_(is_64bit ? "/system/bin/app_process64" : "/system/bin/app_process32"),
       monitor_(monitor) {
     const auto& module_dir = get_module_dir();
-    tracer_path_ = module_dir + (is_64bit ? "/bin/zygisk-ptrace64" : "/bin/zygisk-ptrace32");
-    daemon_path_ = module_dir + (is_64bit ? "/bin/zygiskd64" : "/bin/zygiskd32");
+    tracer_path_ = module_dir + (is_64bit ? "/bin/kazezygisk-ptrace64" : "/bin/kazezygisk-ptrace32");
+    daemon_path_ = module_dir + (is_64bit ? "/bin/kazezygiskd64" : "/bin/kazezygiskd32");
 }
 
 const Status& ZygoteAbiManager::get_status() const { return status_; }
@@ -113,7 +113,7 @@ bool ZygoteAbiManager::ensure_daemon_created(bool* started) {
             if (getppid() == 1) _exit(1);
 
             execl(daemon_path_.c_str(), daemon_path_.c_str(), "--workdir",
-                  zygiskd::GetTmpPath().c_str(), nullptr);
+                  kazezygiskd::GetTmpPath().c_str(), nullptr);
             PLOGE("exec daemon %s", daemon_path_.c_str());
             exit(1);
         }
@@ -149,11 +149,14 @@ bool ZygoteAbiManager::handle_daemon_exit_if_match(int pid, int process_status) 
         status_.daemon_running = false;
         // Clear the pid so ensure_daemon_created() can start a replacement. Losing the
         // daemon is routine under a temp root: `ksud unload` SIGKILLs every holder of a
-        // [ksu_driver] fd, and zygiskd holds one for its whole life.
+        // [ksu_driver] fd, and kazezygiskd holds one for its whole life.
         status_.daemon_pid = -1;
         if (status_.daemon_error_info.empty()) {
             status_.daemon_error_info = status_str;
         }
+        monitor_.record_evidence("daemon_exit", std::string("daemon") + abi_name_ +
+                                                    " pid " + std::to_string(pid) +
+                                                    " exited: " + status_str);
         monitor_.update_status();
         return true;
     }
@@ -188,7 +191,7 @@ bool ZygoteAbiManager::rearm() {
     // since this runs on its only thread and RefreshModules waits inside Connect()'s
     // one-second retries until the daemon has bound its socket -- and while that thread is
     // blocked, every process init forks sits in a ptrace stop nobody is reaping.
-    if (!daemon_started && !zygiskd::RefreshModules()) {
+    if (!daemon_started && !kazezygiskd::RefreshModules()) {
         LOGW("rearm: daemon%s could not refresh its module snapshot", abi_name_);
     }
 
@@ -226,12 +229,12 @@ bool ZygoteAbiManager::rearm() {
 
     status_.supported = true;
 
-    // libzygisk.so stays mapped in a zygote for its whole life -- the self-unmap only
+    // libkazezygisk.so stays mapped in a zygote for its whole life -- the self-unmap only
     // happens in a specialized child -- so its presence is a reliable injected marker here
     // and makes a repeated rearm a no-op.
     bool any_zygote_was_bare = false;
     for (auto pid : zygote_pids) {
-        if (has_library_mapped(pid, "libzygisk.so")) {
+        if (has_library_mapped(pid, "libkazezygisk.so")) {
             LOGI("rearm: zygote (pid %d) is already injected, skipping", pid);
             status_.zygote_injected = true;
         } else {

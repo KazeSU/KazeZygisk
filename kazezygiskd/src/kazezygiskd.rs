@@ -1,6 +1,6 @@
-// src/zygiskd.rs
+// src/kazezygiskd.rs
 
-//! The core logic for the Zygisk daemon (`zygiskd`).
+//! The core logic for the Zygisk daemon (`kazezygiskd`).
 //!
 //! This module is responsible for:
 //! - Initializing paths and communication channels.
@@ -116,6 +116,42 @@ static CONTROLLER_SOCKET: OnceLock<String> = OnceLock::new();
 static DAEMON_SOCKET_PATH: OnceLock<String> = OnceLock::new();
 static SHARED_MEMORY: OnceLock<SharedShm> = OnceLock::new();
 
+/// Module ids ksud keeps out of injection (`/data/system/kazezygisk/quarantine`).
+///
+/// Read on every scan: a refresh picks up a quarantine added while the daemon was
+/// already running, without needing a reboot or a root session change.
+fn quarantined_modules() -> std::collections::HashSet<String> {
+    let Some(tmp) = TMP_PATH.get() else {
+        return std::collections::HashSet::new();
+    };
+    fs::read_to_string(format!("{tmp}/quarantine"))
+        .map(|content| {
+            content
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty() && !line.starts_with('#'))
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Whether a module directory is quarantined, matching either its directory name or
+/// the `id=` in its `module.prop` (the two differ for a few modules).
+fn module_is_quarantined(quarantine: &std::collections::HashSet<String>, dir: &std::path::Path, name: &str) -> bool {
+    if quarantine.contains(name) {
+        return true;
+    }
+    fs::read_to_string(dir.join("module.prop"))
+        .ok()
+        .and_then(|content| {
+            content
+                .lines()
+                .find_map(|line| line.strip_prefix("id=").map(|id| id.trim().to_owned()))
+        })
+        .is_some_and(|id| quarantine.contains(&id))
+}
+
 struct SharedShm {
     fd: OwnedFd,
     layout: *mut constants::ShmLayout,
@@ -141,9 +177,9 @@ impl Drop for SharedShm {
     }
 }
 
-/// The main function for the zygiskd daemon.
+/// The main function for the kazezygiskd daemon.
 pub fn main(tmp_path: Option<&str>) -> Result<()> {
-    info!("Welcome to NyaZygisk ({}) !", ZKSU_VERSION);
+    info!("Welcome to KazeZygisk ({}) !", ZKSU_VERSION);
 
     initialize_globals(tmp_path)?;
     // Lenient at startup where a refresh is strict: the daemon serves the heartbeat, the
@@ -365,13 +401,18 @@ fn send_startup_info(modules: &[Module]) -> Result<()> {
             }
 
             // Scan for Zygisk Next modules (zn_modules.txt)
+            let quarantine = quarantined_modules();
             if let Ok(dir) = fs::read_dir(constants::PATH_MODULES_DIR) {
                 for entry in dir.flatten() {
                     let name = entry.file_name().into_string().unwrap_or_default();
                     let zn_file = entry.path().join("zn_modules.txt");
                     let disabled = entry.path().join("disable");
                     let remove = entry.path().join("remove");
-                    if zn_file.exists() && !disabled.exists() && !remove.exists() {
+                    if zn_file.exists()
+                        && !disabled.exists()
+                        && !remove.exists()
+                        && !module_is_quarantined(&quarantine, &entry.path(), &name)
+                    {
                         let mut targets = Vec::new();
                         let mut has_companion = false;
                         if let Ok(content) = fs::read_to_string(&zn_file) {
@@ -455,12 +496,17 @@ fn load_modules() -> Result<Vec<Module>> {
         }
     };
 
+    let quarantine = quarantined_modules();
     for entry in dir.flatten() {
         let name = entry.file_name().into_string().unwrap_or_default();
         let so_path = entry.path().join(format!("zygisk/{arch}.so"));
         let disabled_flag = entry.path().join("disable");
 
         if !so_path.exists() || disabled_flag.exists() {
+            continue;
+        }
+        if module_is_quarantined(&quarantine, &entry.path(), &name) {
+            info!("Skipping quarantined module `{}`", name);
             continue;
         }
 
@@ -523,7 +569,7 @@ fn spawn_companion(context: &AppContext, name: &str, lib_fd: RawFd) -> Result<Op
 
     // FIXME: A more robust way to get the current executable path is desirable.
     let self_exe = std::env::args().next().unwrap();
-    let nice_name = self_exe.split('/').last().unwrap_or("zygiskd");
+    let nice_name = self_exe.split('/').last().unwrap_or("kazezygiskd");
 
     let companion_fd = companion_sock.as_raw_fd();
     let mut command = Command::new(&self_exe);
@@ -763,7 +809,7 @@ fn spawn_zn_companion(context: &AppContext, lib_path: &Path) -> Result<Option<Un
     let companion_fd = companion_sock.as_raw_fd();
     let mut command = Command::new(&self_exe);
     command
-        .arg0("zygiskd-zn-companion")
+        .arg0("kazezygiskd-zn-companion")
         .arg("zn-companion")
         .arg(lib_path)
         .arg(companion_fd.to_string());
@@ -831,6 +877,7 @@ fn scan_zn_modules_for_target(process_name: &str, process_path: &str) -> Result<
     };
 
     let mut seen_libs = std::collections::HashSet::new();
+    let quarantine = quarantined_modules();
 
     for entry in dir.flatten() {
         let mod_dir = entry.path();
@@ -839,6 +886,10 @@ fn scan_zn_modules_for_target(process_name: &str, process_path: &str) -> Result<
         let zn_file = mod_dir.join("zn_modules.txt");
 
         if !zn_file.exists() || disabled.exists() || remove.exists() {
+            continue;
+        }
+        let dir_name = entry.file_name().into_string().unwrap_or_default();
+        if module_is_quarantined(&quarantine, &mod_dir, &dir_name) {
             continue;
         }
 
@@ -1013,7 +1064,7 @@ fn initialize_shared_memory() -> Result<()> {
     let size = size_of::<constants::ShmLayout>();
     let memfd = memfd::MemfdOptions::default()
         .allow_sealing(true)
-        .create("zygisk-shm")?;
+        .create("kazezygisk-shm")?;
 
     {
         let file = memfd.as_file();

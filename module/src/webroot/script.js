@@ -1,8 +1,8 @@
-const PROP_PATH = "/data/system/nyazygisk/module.prop";
-const CONFIG_PATH = "/data/system/nyazygisk/config.prop";
-const CONFIG_DIR = "/data/system/nyazygisk";
+const PROP_PATH = "/data/system/kazezygisk/module.prop";
+const CONFIG_PATH = "/data/system/kazezygisk/config.prop";
+const CONFIG_DIR = "/data/system/kazezygisk";
 const MODULE_MARKER = "@@NZMOD@@ ";
-const LANG_STORAGE_KEY = "nyazygisk.lang";
+const LANG_STORAGE_KEY = "kazezygisk.lang";
 const GOOD_STATUSES = new Set(["running", "injected", "tracing"]);
 const BAD_STATUSES = new Set(["stopped", "exited", "crashed", "not_injected"]);
 

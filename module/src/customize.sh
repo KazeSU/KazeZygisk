@@ -19,7 +19,7 @@ if [ "$BOOTMODE" ] && [ "$APATCH" ]; then
   if [ "$(which magisk)" ]; then
     ui_print "*********************************************************"
     ui_print "! Multiple root implementation is NOT supported!"
-    ui_print "! Please uninstall Magisk before installing NyaZygisk"
+    ui_print "! Please uninstall Magisk before installing KazeZygisk"
     abort    "*********************************************************"
   fi
 elif [ "$BOOTMODE" ] && [ "$KSU" ]; then
@@ -45,7 +45,7 @@ elif [ "$BOOTMODE" ] && [ "$KSU" ]; then
   if [ "$(which magisk)" ]; then
     ui_print "*********************************************************"
     ui_print "! Multiple root implementation is NOT supported!"
-    ui_print "! Please uninstall Magisk before installing NyaZygisk"
+    ui_print "! Please uninstall Magisk before installing KazeZygisk"
     abort    "*********************************************************"
   fi
 elif [ "$BOOTMODE" ] && [ "$MAGISK_VER_CODE" ]; then
@@ -64,7 +64,7 @@ else
 fi
 
 VERSION=$(grep_prop version "${TMPDIR}/module.prop")
-ui_print "- Installing NyaZygisk $VERSION"
+ui_print "- Installing KazeZygisk $VERSION"
 
 # check android
 if [ "$API" -lt 25 ]; then
@@ -107,15 +107,15 @@ fi
 # Stop any running old monitor/tracer to prevent it from overwriting new module.prop during update
 if [ "$BOOTMODE" ]; then
   for tracer_bin in \
-    /data/adb/modules/zygisksu/bin/zygisk-ptrace64 \
-    /data/adb/modules/zygisksu/bin/zygisk-ptrace32 \
-    "$MODPATH/bin/zygisk-ptrace64" \
-    "$MODPATH/bin/zygisk-ptrace32"; do
+    /data/adb/modules/kazezygisk/bin/kazezygisk-ptrace64 \
+    /data/adb/modules/kazezygisk/bin/kazezygisk-ptrace32 \
+    "$MODPATH/bin/kazezygisk-ptrace64" \
+    "$MODPATH/bin/kazezygisk-ptrace32"; do
     if [ -f "$tracer_bin" ]; then
       "$tracer_bin" ctl exit >/dev/null 2>&1
     fi
   done
-  killall -9 zygisk-ptrace64 zygisk-ptrace32 >/dev/null 2>&1
+  killall -9 kazezygisk-ptrace64 kazezygisk-ptrace32 >/dev/null 2>&1
 fi
 
 ui_print "- Extracting module files"
@@ -124,7 +124,7 @@ extract "$ZIPFILE" 'post-fs-data.sh'           "$MODPATH"
 extract "$ZIPFILE" 'late-load.sh'              "$MODPATH"
 extract "$ZIPFILE" 'post-mount.sh'             "$MODPATH"
 extract "$ZIPFILE" 'hotinstall.sh'            "$MODPATH"
-extract "$ZIPFILE" 'zygisk-init.sh'            "$MODPATH"
+extract "$ZIPFILE" 'kazezygisk-init.sh'            "$MODPATH"
 extract "$ZIPFILE" 'service.sh'                "$MODPATH"
 extract "$ZIPFILE" 'uninstall.sh'              "$MODPATH"
 extract "$ZIPFILE" 'emulated-soft-reboot.sh'   "$MODPATH"
@@ -132,29 +132,35 @@ ui_print "- Extracting WebUI files"
 unzip -o "$ZIPFILE" "webroot/*" -x "*.sha256" -d "$MODPATH" >&2
 mv "$TMPDIR/sepolicy.rule" "$MODPATH"
 
-# Migrate WebUI config to /data/system/nyazygisk
-mkdir -p "/data/system/nyazygisk"
-chmod 755 "/data/system/nyazygisk"
-chcon u:object_r:system_file:s0 "/data/system/nyazygisk"
-chown system:system "/data/system/nyazygisk"
+# Migrate WebUI config to /data/system/kazezygisk
+mkdir -p "/data/system/kazezygisk"
+chmod 755 "/data/system/kazezygisk"
+chcon u:object_r:system_file:s0 "/data/system/kazezygisk"
+chown system:system "/data/system/kazezygisk"
 
-if [ ! -f "/data/system/nyazygisk/config.prop" ]; then
-  if [ -f "/data/adb/nyazygisk/config.prop" ]; then
+if [ ! -f "/data/system/kazezygisk/config.prop" ]; then
+  # Upstream NyaZygisk stored the same options in these places. Carry them over
+  # once so a fork install keeps the user's choices.
+  if [ -f "/data/system/nyazygisk/config.prop" ]; then
+    ui_print "- Migrating WebUI config from NyaZygisk"
+    cp -af "/data/system/nyazygisk/config.prop" "/data/system/kazezygisk/config.prop"
+  elif [ -f "/data/adb/nyazygisk/config.prop" ]; then
     ui_print "- Migrating WebUI config from /data/adb/nyazygisk"
-    cp -af "/data/adb/nyazygisk/config.prop" "/data/system/nyazygisk/config.prop"
+    cp -af "/data/adb/nyazygisk/config.prop" "/data/system/kazezygisk/config.prop"
   elif [ -f "/data/adb/modules/zygisksu/config.prop" ]; then
-    ui_print "- Migrating WebUI config from /data/adb/modules/zygisksu"
-    cp -af "/data/adb/modules/zygisksu/config.prop" "/data/system/nyazygisk/config.prop"
+    ui_print "- Migrating WebUI config from the zygisksu module"
+    cp -af "/data/adb/modules/zygisksu/config.prop" "/data/system/kazezygisk/config.prop"
   fi
 fi
 
-if [ -f "/data/system/nyazygisk/config.prop" ]; then
-  chmod 644 "/data/system/nyazygisk/config.prop"
-  chcon u:object_r:system_file:s0 "/data/system/nyazygisk/config.prop"
-  chown system:system "/data/system/nyazygisk/config.prop"
+if [ -f "/data/system/kazezygisk/config.prop" ]; then
+  chmod 644 "/data/system/kazezygisk/config.prop"
+  chcon u:object_r:system_file:s0 "/data/system/kazezygisk/config.prop"
+  chown system:system "/data/system/kazezygisk/config.prop"
 fi
 
-# Clean up legacy /data/adb/nyazygisk directory if present
+# Clean up the legacy NyaZygisk staging directory if present. It is not ours and
+# nothing reads it any more, but leaving it behind would puzzle an upgrade.
 if [ -d "/data/adb/nyazygisk" ]; then
   rm -rf "/data/adb/nyazygisk"
 fi
@@ -165,32 +171,32 @@ mkdir "$MODPATH/lib64"
 
 if [ "$ARCH" = "x64" ]; then
   ui_print "- Extracting x64 libraries"
-  extract "$ZIPFILE" 'bin/x86_64/zygiskd' "$MODPATH/bin" true
-  mv "$MODPATH/bin/zygiskd" "$MODPATH/bin/zygiskd64"
-  extract "$ZIPFILE" 'lib/x86_64/libzygisk.so' "$MODPATH/lib64" true
-  extract "$ZIPFILE" 'lib/x86_64/libzygisk_ptrace.so' "$MODPATH/bin" true
-  mv "$MODPATH/bin/libzygisk_ptrace.so" "$MODPATH/bin/zygisk-ptrace64"
+  extract "$ZIPFILE" 'bin/x86_64/kazezygiskd' "$MODPATH/bin" true
+  mv "$MODPATH/bin/kazezygiskd" "$MODPATH/bin/kazezygiskd64"
+  extract "$ZIPFILE" 'lib/x86_64/libkazezygisk.so' "$MODPATH/lib64" true
+  extract "$ZIPFILE" 'lib/x86_64/libkazezygisk_ptrace.so' "$MODPATH/bin" true
+  mv "$MODPATH/bin/libkazezygisk_ptrace.so" "$MODPATH/bin/kazezygisk-ptrace64"
 elif [ "$ARCH" = "arm" ]; then
   ui_print "- Extracting arm libraries"
-  extract "$ZIPFILE" 'bin/armeabi-v7a/zygiskd' "$MODPATH/bin" true
-  mv "$MODPATH/bin/zygiskd" "$MODPATH/bin/zygiskd32"
-  extract "$ZIPFILE" 'lib/armeabi-v7a/libzygisk.so' "$MODPATH/lib" true
-  extract "$ZIPFILE" 'lib/armeabi-v7a/libzygisk_ptrace.so' "$MODPATH/bin" true
-  mv "$MODPATH/bin/libzygisk_ptrace.so" "$MODPATH/bin/zygisk-ptrace32"
+  extract "$ZIPFILE" 'bin/armeabi-v7a/kazezygiskd' "$MODPATH/bin" true
+  mv "$MODPATH/bin/kazezygiskd" "$MODPATH/bin/kazezygiskd32"
+  extract "$ZIPFILE" 'lib/armeabi-v7a/libkazezygisk.so' "$MODPATH/lib" true
+  extract "$ZIPFILE" 'lib/armeabi-v7a/libkazezygisk_ptrace.so' "$MODPATH/bin" true
+  mv "$MODPATH/bin/libkazezygisk_ptrace.so" "$MODPATH/bin/kazezygisk-ptrace32"
 elif [ "$ARCH" = "arm64" ]; then
   ui_print "- Extracting arm64 libraries"
-  extract "$ZIPFILE" 'bin/arm64-v8a/zygiskd' "$MODPATH/bin" true
-  mv "$MODPATH/bin/zygiskd" "$MODPATH/bin/zygiskd64"
-  extract "$ZIPFILE" 'lib/arm64-v8a/libzygisk.so' "$MODPATH/lib64" true
-  extract "$ZIPFILE" 'lib/arm64-v8a/libzygisk_ptrace.so' "$MODPATH/bin" true
-  mv "$MODPATH/bin/libzygisk_ptrace.so" "$MODPATH/bin/zygisk-ptrace64"
+  extract "$ZIPFILE" 'bin/arm64-v8a/kazezygiskd' "$MODPATH/bin" true
+  mv "$MODPATH/bin/kazezygiskd" "$MODPATH/bin/kazezygiskd64"
+  extract "$ZIPFILE" 'lib/arm64-v8a/libkazezygisk.so' "$MODPATH/lib64" true
+  extract "$ZIPFILE" 'lib/arm64-v8a/libkazezygisk_ptrace.so' "$MODPATH/bin" true
+  mv "$MODPATH/bin/libkazezygisk_ptrace.so" "$MODPATH/bin/kazezygisk-ptrace64"
 elif [ "$ARCH" = "riscv64" ]; then
   ui_print "- Extracting riscv64 libraries"
-  extract "$ZIPFILE" 'bin/riscv64/zygiskd' "$MODPATH/bin" true
-  mv "$MODPATH/bin/zygiskd" "$MODPATH/bin/zygiskd64"
-  extract "$ZIPFILE" 'lib/riscv64/libzygisk.so' "$MODPATH/lib64" true
-  extract "$ZIPFILE" 'lib/riscv64/libzygisk_ptrace.so' "$MODPATH/bin" true
-  mv "$MODPATH/bin/libzygisk_ptrace.so" "$MODPATH/bin/zygisk-ptrace64"
+  extract "$ZIPFILE" 'bin/riscv64/kazezygiskd' "$MODPATH/bin" true
+  mv "$MODPATH/bin/kazezygiskd" "$MODPATH/bin/kazezygiskd64"
+  extract "$ZIPFILE" 'lib/riscv64/libkazezygisk.so' "$MODPATH/lib64" true
+  extract "$ZIPFILE" 'lib/riscv64/libkazezygisk_ptrace.so' "$MODPATH/bin" true
+  mv "$MODPATH/bin/libkazezygisk_ptrace.so" "$MODPATH/bin/kazezygisk-ptrace64"
 fi
 
 ui_print "- Setting permissions"

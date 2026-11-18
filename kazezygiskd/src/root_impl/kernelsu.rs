@@ -295,7 +295,7 @@ pub fn disable_kernel_umount() {
     };
 
     match set_feature_ioctl(fd, KSU_FEATURE_KERNEL_UMOUNT, 0) {
-        Ok(()) => info!("KernelSU kernel_umount disabled; NyaZygisk owns mount cleanup"),
+        Ok(()) => info!("KernelSU kernel_umount disabled; KazeZygisk owns mount cleanup"),
         Err(error) => warn!("Failed to disable KernelSU kernel_umount: {}", error),
     }
 }

@@ -2,7 +2,7 @@
 
 //! Entry point and logic for a module's companion process.
 //!
-//! A companion process is a dedicated process spawned by `zygiskd` to host a module's
+//! A companion process is a dedicated process spawned by `kazezygiskd` to host a module's
 //! companion code. This isolates the module's long-running tasks from the main daemon.
 //! The companion receives requests from the module code (running inside target apps)
 //! via Unix sockets.

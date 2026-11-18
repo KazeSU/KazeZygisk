@@ -135,14 +135,14 @@ DCL_HOOK_FUNC(static int, unshare, int flags) {
         bool should_unmount = !(g_ctx->info_flags & (PROCESS_IS_MANAGER | PROCESS_GRANTED_ROOT)) &&
                               (g_ctx->flags & DO_REVERT_UNMOUNT);
         if (!should_unmount && g_hook->zygote_unmounted_times > 0) {
-            ZygiskContext::update_mount_namespace(zygiskd::MountNamespace::Root);
+            ZygiskContext::update_mount_namespace(kazezygiskd::MountNamespace::Root);
         }
         // WARNING: we may miss traces (with low possibility) due to lack of unmounted times.
         // However, checking via `check_zygote_traces` frequently is unnecessary for most users.
         bool is_zygote_clean =
             g_hook->zygote_unmounted_times > 0 && g_hook->zygote_traces.size() == 0;
         if (should_unmount && !is_zygote_clean) {
-            ZygiskContext::update_mount_namespace(zygiskd::MountNamespace::Clean);
+            ZygiskContext::update_mount_namespace(kazezygiskd::MountNamespace::Clean);
         }
     }
 
@@ -200,7 +200,7 @@ DCL_HOOK_FUNC(static int, pthread_attr_setstacksize, void *target, size_t size) 
             // Because both `pthread_attr_setstacksize` and `munmap` have the same function
             // signature, we can use `musttail` to let the compiler reuse our stack frame and thus
             // `munmap` will directly return to the caller of `pthread_attr_setstacksize`.
-            LOGV("unmap libzygisk.so loaded at %p with size %zu", start_addr, block_size);
+            LOGV("unmap libkazezygisk.so loaded at %p with size %zu", start_addr, block_size);
             [[clang::musttail]] return munmap(start_addr, block_size);
         }
         delete g_hook;
@@ -384,7 +384,7 @@ void HookContext::hook_plt() {
     // Precise FD-tracked TracerPid sanitization hooks on relevant runtime libraries
     for (const auto &map : cached_map_infos) {
         if (map.offset != 0 || !map.is_private || !(map.perms & PROT_READ)) continue;
-        if (map.path.ends_with("/libzygisk.so") || map.path.ends_with("/libc.so")) continue;
+        if (map.path.ends_with("/libkazezygisk.so") || map.path.ends_with("/libc.so")) continue;
 
         if (map.path.ends_with("/libandroid_runtime.so") ||
             map.path.ends_with("/libart.so") ||
@@ -568,7 +568,7 @@ void hook_entry(void *start_addr, size_t block_size) {
 
     uintptr_t reserved_base = 0;
     size_t reserved_size = 0;
-    clean_linker_trace(zygiskd::GetTmpPath().data(), 1, 0, true, &reserved_base, &reserved_size);
+    clean_linker_trace(kazezygiskd::GetTmpPath().data(), 1, 0, true, &reserved_base, &reserved_size);
 
     // The ptracer sums only path-matched mappings, missing the anonymous .bss zeromap at
     // the top of the reservation. soinfo::size is the real figure; trust it only when the

@@ -53,7 +53,7 @@
 //!
 //! ## Key Steps:
 //!
-//! 1.  **Scan & Load:** On startup, `zygiskd` discovers modules in `/data/adb/modules`.
+//! 1.  **Scan & Load:** On startup, `kazezygiskd` discovers modules in `/data/adb/modules`.
 //! 2.  **Create Sealed Memfd:** It reads each module's library into a secure, immutable in-memory file (`memfd`).
 //! 3.  **Listen & Connect:** The daemon listens on a Unix socket. Zygisk code injected into a newly started application process connects to this socket.
 //! 4.  **Request Module FDs:** The app asks the daemon for the file descriptors of all active modules.
@@ -65,9 +65,9 @@
 //! 10. **Direct Connection:** The companion receives the file descriptor and now holds the other end of the app's original socket. It can now communicate directly with the app. The daemon's brokering job is complete, and it is no longer involved in their conversation. This handoff is efficient and seamless from the app's perspective.
 //!
 //! This binary has multiple modes of operation based on its command-line arguments:
-//! - No arguments: Starts the main `zygiskd` daemon, taking its work directory
+//! - No arguments: Starts the main `kazezygiskd` daemon, taking its work directory
 //!   from the `TMP_PATH` environment variable.
-//! - `--workdir <path>`: Starts the main `zygiskd` daemon with an explicit work
+//! - `--workdir <path>`: Starts the main `kazezygiskd` daemon with an explicit work
 //!   directory, bypassing the `TMP_PATH` environment variable.
 //! - `companion <fd>`: Starts a companion process for a Zygisk module.
 //! - `version`: Prints the daemon version.
@@ -80,7 +80,7 @@ mod mount;
 mod root_impl;
 mod utils;
 mod zn_companion;
-mod zygiskd;
+mod kazezygiskd;
 
 use crate::constants::ZKSU_VERSION;
 use anyhow::Context;
@@ -123,7 +123,7 @@ fn start() {
             }
         }
         Some("version") => {
-            println!("NyaZygisk daemon {}", ZKSU_VERSION);
+            println!("KazeZygisk daemon {}", ZKSU_VERSION);
         }
         Some("root") => {
             root_impl::setup();
@@ -161,16 +161,16 @@ fn main_daemon_entry(tmp_path: Option<&str>) -> anyhow::Result<()> {
     // Detect and globally set the root implementation.
     root_impl::setup();
     log::info!("Current root implementation: {:?}", root_impl::get());
-    // NyaZygisk owns mount cleanup for app processes. Keep the root solution from
+    // KazeZygisk owns mount cleanup for app processes. Keep the root solution from
     // performing the same work independently before our namespace policy runs.
     root_impl::take_over_umount();
-    zygiskd::main(tmp_path)
+    kazezygiskd::main(tmp_path)
 }
 
 fn main() {
     // Use the binary name as the log tag.
     let arg0 = std::env::args().next().unwrap_or_default();
-    let process_name = arg0.split('/').last().unwrap_or("zygiskd");
+    let process_name = arg0.split('/').last().unwrap_or("kazezygiskd");
     init_android_logger(process_name);
 
     start();

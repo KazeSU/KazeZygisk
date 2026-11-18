@@ -110,9 +110,9 @@ pub fn uid_should_umount(uid: i32) -> bool {
 
 /// Takes ownership of per-app module unmounting from the active root solution.
 ///
-/// NyaZygisk prepares and selects clean mount namespaces itself.
+/// KazeZygisk prepares and selects clean mount namespaces itself.
 /// Root solutionsthat also unmount in parallel must therefore be disabled
-/// to preserve the exclusions applied by NyaZygisk's mount policy.
+/// to preserve the exclusions applied by KazeZygisk's mount policy.
 pub fn take_over_umount() {
     if matches!(get(), RootImpl::KernelSU) {
         kernelsu::disable_kernel_umount();

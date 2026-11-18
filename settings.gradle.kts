@@ -16,9 +16,9 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "NyaZygisk"
+rootProject.name = "KazeZygisk"
 include(
     ":loader",
     ":module",
-    ":zygiskd",
+    ":kazezygiskd",
 )

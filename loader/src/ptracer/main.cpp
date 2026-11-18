@@ -27,14 +27,14 @@ using namespace std::string_view_literals;
 #ifdef WORK_DIRECTORY
 const char *const kWorkDirectory = STRINGIFY(WORK_DIRECTORY);
 #else
-const char *const kWorkDirectory = "/data/system/nyazygisk";
+const char *const kWorkDirectory = "/data/system/kazezygisk";
 #endif
 
 // Fills in the address of the monitor's control socket.
 static void control_socket_addr(struct sockaddr_un &addr, socklen_t &socklen) {
     addr.sun_family = AF_UNIX;
     memset(addr.sun_path, 0, sizeof(addr.sun_path));
-    snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", zygiskd::GetTmpPath().c_str(),
+    snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", kazezygiskd::GetTmpPath().c_str(),
              AppMonitor::SOCKET_NAME);
     socklen = sizeof(sa_family_t) + strlen(addr.sun_path);
 }
@@ -63,7 +63,7 @@ static bool monitor_is_running() {
 
 // The main entry point for the monitoring process.
 void init_monitor() {
-    LOGI("NyaZygisk %s", ZKSU_VERSION);
+    LOGI("KazeZygisk %s", ZKSU_VERSION);
 
     // Exactly one monitor may exist: two would both seize init and race over the same
     // control socket and status file. Checking here, before prepare_environment(), keeps
@@ -169,7 +169,7 @@ static void handle_interrupt(int sig) {
  */
 int main(int argc, char **argv) {
     // This initialization is for the daemon's internal logic, not for CLI output.
-    zygiskd::Init(kWorkDirectory);
+    kazezygiskd::Init(kWorkDirectory);
 
     if (argc < 2) {
         print_usage(argv[0]);
@@ -199,7 +199,7 @@ int main(int argc, char **argv) {
  * @param tool_name The name of the executable, typically argv[0].
  */
 static void print_usage(const char *tool_name) {
-    fprintf(stderr, "NyaZygisk Tracer %s\n", ZKSU_VERSION);
+    fprintf(stderr, "KazeZygisk Tracer %s\n", ZKSU_VERSION);
     fprintf(stderr,
             "usage: %s monitor | trace <pid> [--spawn | --standalone | --system_server] | ctl "
             "<start|stop|exit|rearm> | version\n",
@@ -270,11 +270,11 @@ static int handle_trace(int argc, char **argv) {
     const char *target = mode == TraceMode::UNKNOWN ? "process" : "zygote";
     if (mode == TraceMode::SPAWN) {
         printf("reporting zygote restart...\n");
-        zygiskd::ZygoteRestart();
+        kazezygiskd::ZygoteRestart();
     } else if (mode == TraceMode::STANDALONE) {
         printf("standalone mode: injecting into the running zygote...\n");
         // No daemon is started here. Every mode now runs under a monitor that already owns
-        // the control socket and zygiskd, and `ctl rearm` is what drives this mode, so the
+        // the control socket and kazezygiskd, and `ctl rearm` is what drives this mode, so the
         // tracer is a plain injector in all three cases. Running this by hand therefore
         // needs a monitor first -- which is exactly what `ctl rearm` asks for.
     } else if (mode == TraceMode::SYSTEM_SERVER) {
@@ -282,10 +282,10 @@ static int handle_trace(int argc, char **argv) {
         printf("injecting into system_server\n");
     }
 
-    // Note on the heartbeat race: the tracee may reach zygiskd::PingHeartbeat() before the
-    // monitor's zygiskd has bound the control socket. This is covered by the retry budget
-    // in zygiskd::Connect() -- PingHeartbeat uses Connect(5), i.e. four one-second retries
-    // -- which comfortably outlasts a fork+exec of zygiskd. The retries run inside the
+    // Note on the heartbeat race: the tracee may reach kazezygiskd::PingHeartbeat() before the
+    // monitor's kazezygiskd has bound the control socket. This is covered by the retry budget
+    // in kazezygiskd::Connect() -- PingHeartbeat uses Connect(5), i.e. four one-second retries
+    // -- which comfortably outlasts a fork+exec of kazezygiskd. The retries run inside the
     // ptrace-stopped tracee, so the only cost of losing the race is a short stall.
     if (!trace_target(pid, mode)) {
         // Resume the target uninjected rather than killing it, in every mode. A SPAWN
@@ -348,6 +348,6 @@ static int handle_ctl(int argc, char **argv) {
  * Prints the tool's version number to standard output.
  */
 static int handle_version() {
-    printf("NyaZygisk Tracer %s\n", ZKSU_VERSION);
+    printf("KazeZygisk Tracer %s\n", ZKSU_VERSION);
     return EXIT_SUCCESS;
 }

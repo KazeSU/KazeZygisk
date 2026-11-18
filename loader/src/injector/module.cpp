@@ -109,11 +109,11 @@ bool ZygiskModule::valid() const {
     }
 }
 
-/* Zygisksu changed: Use own zygiskd */
-int ZygiskModule::connectCompanion() const { return zygiskd::ConnectCompanion(id); }
+/* Zygisksu changed: Use own kazezygiskd */
+int ZygiskModule::connectCompanion() const { return kazezygiskd::ConnectCompanion(id); }
 
-/* Zygisksu changed: Use own zygiskd */
-int ZygiskModule::getModuleDir() const { return zygiskd::GetModuleDir(id); }
+/* Zygisksu changed: Use own kazezygiskd */
+int ZygiskModule::getModuleDir() const { return kazezygiskd::GetModuleDir(id); }
 
 void ZygiskModule::setOption(zygisk::Option opt) {
     if (g_ctx == nullptr) return;
@@ -386,7 +386,7 @@ void ZygiskContext::fork_post() {
 
 /* Zygisksu changed: Load module fds */
 void ZygiskContext::run_modules_pre() {
-    auto ms = zygiskd::ReadModules();
+    auto ms = kazezygiskd::ReadModules();
     auto size = ms.size();
     for (size_t i = 0; i < size; i++) {
         auto &m = ms[i];
@@ -442,7 +442,7 @@ void ZygiskContext::run_modules_post() {
         LOGV("modules unloaded: %zu/%zu (system-loaded: %zu)", modules_unloaded, modules.size(),
              system_loaded);
         if (modules.size() == modules_unloaded) clean_libc_trace();
-        // "zygisk-module" is the memfd name (zygiskd.rs:264); b4d31ab fixed the same
+        // "zygisk-module" is the memfd name (kazezygiskd.rs:264); b4d31ab fixed the same
         // stale needle in spoof_virtual_maps but missed this call site. Custom-linker
         // modules are not in solist, so only scrub when something went through fallback.
         if (system_loaded > 0) {
@@ -470,19 +470,25 @@ void ZygiskContext::app_specialize_pre() {
         }
     }
 
-    bool skip_zygiskd = false;
+    bool skip_kazezygiskd = false;
     if (is_isolated_aid) {
-        UniqueFd fd = zygiskd::Connect(1);
+        UniqueFd fd = kazezygiskd::Connect(1);
         if (fd == -1) {
-            skip_zygiskd = true;
+            skip_kazezygiskd = true;
         }
     }
 
-    if (!skip_zygiskd && info_flags == 0) info_flags = zygiskd::GetProcessFlags(uid);
+    if (!skip_kazezygiskd && info_flags == 0) info_flags = kazezygiskd::GetProcessFlags(uid);
 
-    if ((info_flags & UNMOUNT_MASK) == UNMOUNT_MASK) {
+    const int dl_mode = denylist_mode();
+    if ((info_flags & UNMOUNT_MASK) == UNMOUNT_MASK && dl_mode != 2) {
         LOGV("[%s] is on the denylist", process);
         flags |= DO_REVERT_UNMOUNT;
+        if (dl_mode == 1) {
+            // Hide the framework from the process completely, but keep zygote
+            // application state consistent by not asking modules to specialize it.
+            flags |= SKIP_MODULE_LOADING;
+        }
     }
 
     // Treat the WebView app-zygote as if it were on the denylist so that the isolated
@@ -495,11 +501,11 @@ void ZygiskContext::app_specialize_pre() {
     }
 
     flags |= APP_SPECIALIZE;
-    if (!skip_zygiskd) run_modules_pre();
+    if (!skip_kazezygiskd && !(flags & SKIP_MODULE_LOADING)) run_modules_pre();
 }
 
 void ZygiskContext::app_specialize_post() {
-    run_modules_post();
+    if (!(flags & SKIP_MODULE_LOADING)) run_modules_post();
 
     if ((info_flags & PROCESS_IS_MANAGER) == PROCESS_IS_MANAGER) {
         LOGI("current uid %d is manager!", args.app->uid);
@@ -512,7 +518,7 @@ void ZygiskContext::app_specialize_post() {
 
 void ZygiskContext::server_specialize_pre() {
     run_modules_pre();
-    zygiskd::SystemServerStarted();
+    kazezygiskd::SystemServerStarted();
 }
 
 void ZygiskContext::server_specialize_post() { run_modules_post(); }
@@ -531,7 +537,7 @@ void ZygiskContext::nativeSpecializeAppProcess_pre() {
 
 void ZygiskContext::nativeSpecializeAppProcess_post() {
     LOGV("post specialize [%s]", process);
-    zygiskd::UnmapSharedMemory();
+    kazezygiskd::UnmapSharedMemory();
     app_specialize_post();
 }
 
@@ -556,7 +562,7 @@ void ZygiskContext::nativeForkSystemServer_pre() {
     fork_pre();
     if (is_child()) {
         server_specialize_pre();
-        zygiskd::CacheMountNamespace(getpid());
+        kazezygiskd::CacheMountNamespace(getpid());
     }
     sanitize_fds();
 }
@@ -564,7 +570,7 @@ void ZygiskContext::nativeForkSystemServer_pre() {
 void ZygiskContext::nativeForkSystemServer_post() {
     if (is_child()) {
         LOGV("post forkSystemServer");
-        zygiskd::UnmapSharedMemory();
+        kazezygiskd::UnmapSharedMemory();
         server_specialize_post();
     }
     fork_post();
@@ -610,7 +616,7 @@ void ZygiskContext::nativeForkAndSpecialize_pre() {
     flags |= APP_FORK_AND_SPECIALIZE;
 
     if (g_hook->zygote_unmounted_times < 5 && g_hook->zygote_traces.size() == 0) {
-        info_flags = zygiskd::GetProcessFlags(args.app->uid);
+        info_flags = kazezygiskd::GetProcessFlags(args.app->uid);
 
         g_hook->zygote_traces = check_zygote_traces(info_flags, g_hook->zygote_unmounted_times);
 
@@ -644,7 +650,7 @@ void ZygiskContext::nativeForkAndSpecialize_pre() {
 void ZygiskContext::nativeForkAndSpecialize_post() {
     if (is_child()) {
         LOGV("post forkAndSpecialize [%s]", process);
-        zygiskd::UnmapSharedMemory();
+        kazezygiskd::UnmapSharedMemory();
         app_specialize_post();
     }
     fork_post();
@@ -652,11 +658,11 @@ void ZygiskContext::nativeForkAndSpecialize_post() {
 
 // -----------------------------------------------------------------
 
-bool ZygiskContext::update_mount_namespace(zygiskd::MountNamespace namespace_type) {
-    const char *type_str = (namespace_type == zygiskd::MountNamespace::Clean ? "Clean" : "Root");
+bool ZygiskContext::update_mount_namespace(kazezygiskd::MountNamespace namespace_type) {
+    const char *type_str = (namespace_type == kazezygiskd::MountNamespace::Clean ? "Clean" : "Root");
     LOGV("updating mount namespace to type %s", type_str);
 
-    int ns_fd = zygiskd::UpdateMountNamespace(namespace_type);
+    int ns_fd = kazezygiskd::UpdateMountNamespace(namespace_type);
 
     // Check for failure (Not cached or error)
     if (ns_fd < 0) {

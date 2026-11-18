@@ -10,7 +10,7 @@
 // A minimal from-scratch loader for Zygisk / ZN module shared objects.
 //
 // Rationale: android_dlopen_ext records every loaded library in the dynamic
-// linker's solist, which NyaZygisk then has to walk and scrub (see
+// linker's solist, which KazeZygisk then has to walk and scrub (see
 // injector/solist.cpp). Mapping the module ourselves keeps it out of solist
 // entirely, so none of that post-hoc cleanup is needed for modules loaded this
 // way. Dependencies (DT_NEEDED) are still resolved through the system linker,

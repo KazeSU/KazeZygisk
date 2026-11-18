@@ -48,7 +48,7 @@ private:
     Fd fd_ = -1;
 };
 
-namespace zygiskd {
+namespace kazezygiskd {
 
 struct Module {
     std::string name;
@@ -125,4 +125,4 @@ void UnmapSharedMemory();
 /// Asks the daemon to rebuild its module snapshot from disk, and waits for the result.
 /// Synchronous on purpose: the rearm path must not inject against a stale snapshot.
 bool RefreshModules();
-}  // namespace zygiskd
+}  // namespace kazezygiskd

@@ -41,17 +41,17 @@ install_lib() {
 # would leave that monitor unreachable while injected processes keep running. A stale
 # socket from a dead monitor is unlinked by the next monitor when it binds.
 create_sys_perm "$TMP_PATH"
-install_lib "$MODDIR/lib64/libzygisk.so" "$TMP_PATH/lib64/libzygisk.so"
-install_lib "$MODDIR/lib/libzygisk.so" "$TMP_PATH/lib/libzygisk.so"
+install_lib "$MODDIR/lib64/libkazezygisk.so" "$TMP_PATH/lib64/libkazezygisk.so"
+install_lib "$MODDIR/lib/libkazezygisk.so" "$TMP_PATH/lib/libkazezygisk.so"
 
 [ "$DEBUG" = true ] && export RUST_BACKTRACE=1
 
-if [ -f "$MODDIR/bin/zygisk-ptrace64" ]; then
-  TRACER="$MODDIR/bin/zygisk-ptrace64"
-elif [ -f "$MODDIR/bin/zygisk-ptrace32" ]; then
-  TRACER="$MODDIR/bin/zygisk-ptrace32"
+if [ -f "$MODDIR/bin/kazezygisk-ptrace64" ]; then
+  TRACER="$MODDIR/bin/kazezygisk-ptrace64"
+elif [ -f "$MODDIR/bin/kazezygisk-ptrace32" ]; then
+  TRACER="$MODDIR/bin/kazezygisk-ptrace32"
 else
-  log -p e -t "zygisk-sh" "No tracer binary found in $MODDIR/bin"
+  log -p e -t "kazezygisk-sh" "No tracer binary found in $MODDIR/bin"
   exit 1
 fi
 

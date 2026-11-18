@@ -63,7 +63,7 @@ jobs:
           rustup target add armv7-linux-androideabi
 
       - name: Install cargo-ndk
-        # The zygiskd build invokes `cargo ndk` to cross-compile the daemon.
+        # The kazezygiskd build invokes `cargo ndk` to cross-compile the daemon.
         # Intentionally unpinned: the build uses the `--platform` flag, which is
         # stable across cargo-ndk releases. Prebuilt binary avoids a source build.
         uses: taiki-e/install-action@v2
@@ -78,7 +78,7 @@ jobs:
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: zygiskd -> build/rust/target
+          workspaces: kazezygiskd -> build/rust/target
 
       # ====================================================================
       # 2. CONFIGURE AND BUILD
@@ -93,8 +93,8 @@ jobs:
         if: success()
         id: prepare_artifacts
         run: |
-          RELEASE_ZIP=$(find module/build/outputs/release -type f -name 'NyaZygisk-v*-release.zip')
-          DEBUG_ZIP=$(find module/build/outputs/release -type f -name 'NyaZygisk-v*-debug.zip')
+          RELEASE_ZIP=$(find module/build/outputs/release -type f -name 'KazeZygisk-v*-release.zip')
+          DEBUG_ZIP=$(find module/build/outputs/release -type f -name 'KazeZygisk-v*-debug.zip')
 
           RELEASE_NAME=$(basename "$RELEASE_ZIP" .zip)
           DEBUG_NAME=$(basename "$DEBUG_ZIP" .zip)
@@ -123,13 +123,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-symbols
-          path: zygiskd/build/symbols/release/
+          path: kazezygiskd/build/symbols/release/
 
       - name: Upload Debug Symbols
         uses: actions/upload-artifact@v4
         with:
           name: debug-symbols
-          path: zygiskd/build/symbols/debug/
+          path: kazezygiskd/build/symbols/debug/
 
       - name: Publish artifacts to Telegram
         if: success() && github.event_name != 'pull_request'
@@ -138,7 +138,7 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
           RELEASE_ZIP: ${{ steps.prepare_artifacts.outputs.RELEASE_ZIP }}
-          TITLE: NyaZygisk
+          TITLE: KazeZygisk
           VERSION: ${{ github.run_number }}
           BRANCH: ${{ github.ref_name }}
           COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}

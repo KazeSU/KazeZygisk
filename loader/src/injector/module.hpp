@@ -249,6 +249,9 @@ enum : uint32_t {
     SERVER_FORK_AND_SPECIALIZE = (1u << 3),
     DO_REVERT_UNMOUNT = (1u << 4),
     SKIP_CLOSE_LOG_PIPE = (1u << 5),
+    /// The process is on the denylist and the user chose `denylist_mode=1`: keep the
+    /// clean mount namespace but do not load any module into it.
+    SKIP_MODULE_LOADING = (1u << 6),
 };
 
 #define DCL_PRE_POST(name)                                                                         \
@@ -312,7 +315,7 @@ struct ZygiskContext {
 
     bool plt_hook_commit();
 
-    static bool update_mount_namespace(zygiskd::MountNamespace namespace_type);
+    static bool update_mount_namespace(kazezygiskd::MountNamespace namespace_type);
 };
 
 #undef DCL_PRE_POST

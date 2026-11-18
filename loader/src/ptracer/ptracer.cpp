@@ -138,7 +138,7 @@ static bool execute_remote_injection(int pid, struct user_regs_struct &regs, con
     dev_t lib_dev = 0;
     ino_t lib_inode = 0;
     for (const auto &info : map) {
-        if (info.inode != 0 && info.path.find("libzygisk.so") != std::string::npos) {
+        if (info.inode != 0 && info.path.find("libkazezygisk.so") != std::string::npos) {
             lib_dev = info.dev;
             lib_inode = info.inode;
             break;
@@ -155,11 +155,11 @@ static bool execute_remote_injection(int pid, struct user_regs_struct &regs, con
          start_addr, block_size, major(lib_dev), minor(lib_dev), (unsigned long) lib_inode);
 
     // Remotely call our entry(start_addr, block_size, path) function
-    LOGI("calling the injector's entry function to initialize NyaZygisk");
+    LOGI("calling the injector's entry function to initialize KazeZygisk");
     args.clear();
     args.push_back((uintptr_t) start_addr);
     args.push_back(block_size);
-    auto remote_tmp_path = push_string(pid, regs, zygiskd::GetTmpPath().c_str());
+    auto remote_tmp_path = push_string(pid, regs, kazezygiskd::GetTmpPath().c_str());
     args.push_back((long) remote_tmp_path);
     args.push_back(mode);
     // entry() returns void, so only `ok` tells a clean return from a crash inside it. A
@@ -180,7 +180,7 @@ static bool execute_remote_injection(int pid, struct user_regs_struct &regs, con
  *
  * This function orchestrates the core injection logic. It attaches to the target process,
  * intercepts its execution just before the first instruction, and uses this opportunity
- * to load a shared library (`libzygisk.so`) into the process's address space.
+ * to load a shared library (`libkazezygisk.so`) into the process's address space.
  *
  * The strategy is as follows:
  * 1.  **Parse Kernel Argument Block**: Read the process's stack to find the location of program
@@ -428,7 +428,7 @@ static bool wait_for_process(int pid, int *status) {
  * the normal path -- it only relocates the library, while the control socket stays where it
  * is, so it cannot on its own make an unreachable work directory usable.
  *
- * @param src_path The original path (e.g., /data/system/nyazygisk/lib64/libzygisk.so)
+ * @param src_path The original path (e.g., /data/system/kazezygisk/lib64/libkazezygisk.so)
  * @return The path to the temporary file, or an empty string on failure.
  */
 [[maybe_unused]] static std::string copy_to_temp(const std::string &src_path) {
@@ -481,8 +481,8 @@ static bool wait_for_process(int pid, int *status) {
  * Shared logic between Seize and Attach methods.
  */
 static bool perform_injection(int pid, TraceMode mode) {
-    std::string lib_path = zygiskd::GetTmpPath();
-    lib_path += "/lib" LP_SELECT("", "64") "/libzygisk.so";
+    std::string lib_path = kazezygiskd::GetTmpPath();
+    lib_path += "/lib" LP_SELECT("", "64") "/libkazezygisk.so";
     bool process_started = mode == TraceMode::STANDALONE || mode == TraceMode::SYSTEM_SERVER;
 
     if (process_started) {
@@ -710,7 +710,7 @@ bool trace_target(int pid, TraceMode mode) {
 
     // 1. Try SEIZE (Modern, robust handling of group stops)
     if (trace_with_seize(pid, mode)) {
-        LOGI("successfully detached from %d (via SEIZE), NyaZygisk active", pid);
+        LOGI("successfully detached from %d (via SEIZE), KazeZygisk active", pid);
         return true;
     }
 
@@ -721,7 +721,7 @@ bool trace_target(int pid, TraceMode mode) {
         LOGW("PTRACE_SEIZE failed with EIO, attempting fallback to PTRACE_ATTACH");
 
         if (trace_with_attach(pid, mode)) {
-            LOGI("successfully detached from %d (via ATTACH), NyaZygisk active", pid);
+            LOGI("successfully detached from %d (via ATTACH), KazeZygisk active", pid);
             return true;
         }
     } else {

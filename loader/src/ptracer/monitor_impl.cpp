@@ -7,8 +7,10 @@
 #include <unistd.h>
 
 #include <csignal>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 
 #include "daemon.hpp"
 #include "files.hpp"
@@ -17,6 +19,64 @@
 #include "utils.hpp"
 
 // --- AppMonitor Method Implementations ---
+
+namespace {
+
+/// Read a small file, trimmed. Empty on any failure.
+std::string read_small_file(const char *path) {
+    FILE *fp = fopen(path, "re");
+    if (fp == nullptr) return {};
+    char buf[128] = {};
+    if (fgets(buf, sizeof(buf), fp) == nullptr) {
+        fclose(fp);
+        return {};
+    }
+    fclose(fp);
+    std::string value(buf);
+    while (!value.empty() && (value.back() == '\n' || value.back() == '\r' || value.back() == ' ' ||
+                              value.back() == '\t')) {
+        value.pop_back();
+    }
+    return value;
+}
+
+/// Field 22 of /proc/self/stat: the process start time in clock ticks. Together with the
+/// pid this identifies a monitor across a reboot, where a recycled pid would otherwise
+/// make a stale receipt look current.
+unsigned long long self_start_ticks() {
+    FILE *fp = fopen("/proc/self/stat", "re");
+    if (fp == nullptr) return 0;
+    char buf[1024] = {};
+    size_t read = fread(buf, 1, sizeof(buf) - 1, fp);
+    fclose(fp);
+    buf[read] = '\0';
+
+    // The comm field is parenthesised and may contain spaces, so skip past the last ')'.
+    char *cursor = strrchr(buf, ')');
+    if (cursor == nullptr) return 0;
+    ++cursor;
+    int field = 2;  // the next token is field 3
+    char *save = nullptr;
+    for (char *token = strtok_r(cursor, " ", &save); token != nullptr;
+         token = strtok_r(nullptr, " ", &save)) {
+        ++field;
+        if (field == 22) {
+            return strtoull(token, nullptr, 10);
+        }
+    }
+    return 0;
+}
+
+}  // namespace
+
+void AppMonitor::record_evidence(const std::string &kind, const std::string &message) {
+    const std::string path = kazezygiskd::GetTmpPath() + "/evidence.log";
+    FILE *fp = fopen(path.c_str(), "ae");
+    if (fp == nullptr) return;
+    fprintf(fp, "%lld %s %s\n", static_cast<long long>(time(nullptr)), kind.c_str(),
+            message.c_str());
+    fclose(fp);
+}
 
 AppMonitor::AppMonitor()
     : event_loop_(),
@@ -93,7 +153,7 @@ void AppMonitor::update_status() {
     }
     runtime_status += "description=[Monitor: ";
     runtime_status += monitor_icon;
-    runtime_status += ", NyaZygisk ";
+    runtime_status += ", KazeZygisk ";
     runtime_status += abi_pretty;
     runtime_status += ": ";
     runtime_status += abi_icon;
@@ -125,6 +185,14 @@ void AppMonitor::update_status() {
         installed_status += "\nmonitor_stop_reason=";
         installed_status += monitor_stop_reason_;
     }
+    // Receipt fields: ksud compares these against its own boot id and pid so a status
+    // file left behind by the previous boot cannot be mistaken for a live engine.
+    installed_status += "\nboot_id=";
+    installed_status += read_small_file("/proc/sys/kernel/random/boot_id");
+    installed_status += "\nmonitor_pid=";
+    installed_status += std::to_string(getpid());
+    installed_status += "\nmonitor_start_ticks=";
+    installed_status += std::to_string(self_start_ticks());
     installed_status += '\n';
     write_abi_status_section(installed_status, d_status);
     installed_status += '\n';
@@ -172,7 +240,7 @@ void AppMonitor::update_status() {
 }
 
 bool AppMonitor::prepare_environment() {
-    prop_path_ = zygiskd::GetTmpPath() + "/module.prop";
+    prop_path_ = kazezygiskd::GetTmpPath() + "/module.prop";
     int fd = open(prop_path_.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd >= 0) {
         close(fd);
@@ -289,6 +357,7 @@ void AppMonitor::request_stop(std::string reason) {
         LOGI("stop tracing requested");
         tracing_state_ = STOPPING;
         monitor_stop_reason_ = std::move(reason);
+        record_evidence("monitor_stop", monitor_stop_reason_);
         ptrace(PTRACE_INTERRUPT, 1, 0, 0);
         update_status();
     }
@@ -341,7 +410,7 @@ bool AppMonitor::SocketHandler::Init() {
         .sun_family = AF_UNIX,
         .sun_path = {0},
     };
-    sprintf(addr.sun_path, "%s/%s", zygiskd::GetTmpPath().c_str(), AppMonitor::SOCKET_NAME);
+    sprintf(addr.sun_path, "%s/%s", kazezygiskd::GetTmpPath().c_str(), AppMonitor::SOCKET_NAME);
     socklen_t socklen = sizeof(sa_family_t) + strlen(addr.sun_path);
     // A filesystem socket outlives the process that bound it, and the work directory
     // outlives a root session, so the name can still be held by a monitor that is gone.
@@ -490,7 +559,7 @@ bool AppMonitor::SigChldHandler::Init() {
  *       or, in the case of stubs, for their termination.
  *
  * 2.  Helper Daemons
- *     - Criteria: PID matches a known `zygiskd` instance.
+ *     - Criteria: PID matches a known `kazezygiskd` instance.
  *     - Role: Self-monitoring mechanism.
  *     - Action: Checks if the daemon has crashed or exited unexpectedly and
  *       updates the global status accordingly.
@@ -549,7 +618,7 @@ void AppMonitor::SigChldHandler::handleChildEvent(int pid, int &status) {
     }
 
     // Role 2: Helper Daemons
-    // Check if this is one of our own zygiskd daemon instances exiting.
+    // Check if this is one of our own kazezygiskd daemon instances exiting.
     if (monitor_.get_abi_manager().handle_daemon_exit_if_match(pid, status)) {
         return;
     }
